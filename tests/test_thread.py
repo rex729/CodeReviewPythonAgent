@@ -1,6 +1,6 @@
 import unittest
 
-from review_agent.gitlab import Discussion, MergeRequest, Note
+from review_agent.gitlab import Discussion, GitLabError, MergeRequest, Note
 from review_agent.thread import (
     MARKER, REVIEWED_PREFIX, MergeRequestThread, cited_path, split_points, unique_points,
 )
@@ -18,6 +18,8 @@ class FakeGitLab:
         self.threads: list[Discussion] = []
         self.started = 0
         self.deleted: list[int] = []
+        self.resolved: list[str] = []
+        self.fail_resolve = False
         self._next_note = 100
 
     def discussions(self, iid):
@@ -33,6 +35,11 @@ class FakeGitLab:
         self.deleted.append(note_id)
         for discussion in self.threads:
             discussion.notes[:] = [n for n in discussion.notes if n.id != note_id]
+
+    def resolve_thread(self, iid, discussion_id):
+        if self.fail_resolve:
+            raise GitLabError("GitLab 回傳錯誤（HTTP 500）")
+        self.resolved.append(discussion_id)
 
     def reply_by_person(self, discussion_index, body):
         self.threads[discussion_index].notes.append(self._note(body))
@@ -114,6 +121,25 @@ class MergeRequestThreadTest(unittest.TestCase):
         self.assertIn("沒有發現需要注意的地方", body)
         self.assertEqual(bullets(body), [])
         self.assertTrue(body.endswith(f"{REVIEWED_PREFIX} 1234567890ab"))
+
+    def test_a_clean_review_resolves_its_thread(self):
+        outcome = self.thread().publish(MR, "1234567890abcdef", [])
+
+        self.assertEqual(self.gitlab.resolved, [self.gitlab.threads[0].id])
+        self.assertIn("已設成 resolved", outcome)
+
+    def test_a_review_with_findings_stays_unresolved(self):
+        self.thread().publish(MR, "1234567890abcdef", [DIVIDE])
+
+        self.assertEqual(self.gitlab.resolved, [])
+
+    def test_failing_to_resolve_keeps_the_posted_review(self):
+        self.gitlab.fail_resolve = True
+
+        outcome = self.thread().publish(MR, "1234567890abcdef", [])
+
+        self.assertEqual(len(self.gitlab.visible_threads()), 1)
+        self.assertIn("沒能把它設成 resolved", outcome)
 
     def test_a_new_commit_replaces_the_old_thread(self):
         self.thread().publish(MR, "c1c1c1c1c1c1c1", [DIVIDE, NAMING])

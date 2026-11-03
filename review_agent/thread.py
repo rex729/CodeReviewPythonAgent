@@ -2,7 +2,8 @@
 
 Each thread holds one complete review of one commit ("Start thread", not a plain comment). Its last
 line names that commit. When the MR gets a new commit, the agent deletes its old thread and starts a
-new one with the new review, so a thread never mixes findings from different commits. The thread
+new one with the new review, so a thread never mixes findings from different commits. A review with
+no findings is resolved right away, since there is nothing left to discuss. The thread
 itself is the record of what was reviewed: notes carry a hidden marker and the reviewed commit, so
 the agent finds them again even if its local state is lost."""
 
@@ -10,7 +11,7 @@ from __future__ import annotations
 
 import re
 
-from .gitlab import Discussion, GitLabClient, MergeRequest
+from .gitlab import Discussion, GitLabClient, GitLabError, MergeRequest
 
 # An HTML comment: GitLab renders nothing for it, but it identifies the agent's own notes.
 MARKER = "<!-- ollama-review-agent -->"
@@ -96,10 +97,19 @@ class MergeRequestThread:
         title = f"**AI code review**（{self._model}，commit `{head[:8]}`）"
         findings = "\n".join(f"- {point}" for point in unique) if unique else "沒有發現需要注意的地方。"
         reviewed = f"{REVIEWED_PREFIX} {head[:REVIEWED_SHA_LENGTH]}"
-        self._gitlab.start_thread(mr.iid, f"{MARKER}\n{title}\n\n{findings}\n\n{reviewed}")
+        discussion_id = self._gitlab.start_thread(mr.iid, f"{MARKER}\n{title}\n\n{findings}\n\n{reviewed}")
 
         replaced = f"刪掉舊的 thread（{deleted} 則留言），" if deleted else ""
-        return f"{replaced}開了新的 thread，{len(unique)} 個注意事項"
+        outcome = f"{replaced}開了新的 thread，{len(unique)} 個注意事項"
+        if unique:
+            return outcome
+        # Nothing to act on, so the thread shouldn't count as an unresolved one blocking the merge.
+        # The review is already posted: a failure here mustn't make the next round post it again.
+        try:
+            self._gitlab.resolve_thread(mr.iid, discussion_id)
+        except GitLabError as e:
+            return f"{outcome}，但沒能把它設成 resolved：{e}"
+        return f"{outcome}，已設成 resolved"
 
     def _own_threads(self, iid: int) -> list[Discussion]:
         return [d for d in self._gitlab.discussions(iid) if d.notes and MARKER in d.notes[0].body]

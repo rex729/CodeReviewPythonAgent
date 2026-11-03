@@ -34,7 +34,7 @@ class FakeGitLabServer:
                 self.end_headers()
                 self.wfile.write(data)
 
-            do_GET = do_POST = do_DELETE = _handle
+            do_GET = do_POST = do_PUT = do_DELETE = _handle
 
             def log_message(self, *args):
                 pass
@@ -82,6 +82,15 @@ class GitLabClientTest(unittest.TestCase):
         request = self.server.requests[0]
         self.assertEqual(request["body"], {"body": "- 問題"})
         self.assertEqual(request["type"], "application/json")
+
+    def test_resolve_thread_puts_resolved_true_on_the_discussion(self):
+        self.server.responses[("PUT", f"{PROJECT}/merge_requests/3/discussions/d1")] = (200, {"id": "d1", "notes": []})
+
+        self.client.resolve_thread(3, "d1")
+
+        request = self.server.requests[0]
+        self.assertEqual(request["method"], "PUT")
+        self.assertIn("resolved=true", request["path"])
 
     def test_delete_note_accepts_an_empty_204_answer(self):
         self.server.responses[("DELETE", f"{PROJECT}/merge_requests/3/notes/42")] = (204, None)
