@@ -21,7 +21,10 @@ ollama pull qwen2.5-coder:7b
 python -m review_agent          # keep watching
 python -m review_agent --once   # one round, then exit
 python -m unittest discover -s tests -t .
+./stop_agent.sh                 # stop a running agent (Windows: .\stop_agent.ps1)
 ```
+
+On macOS, use `python3` (3.11 or later, for `tomllib`).
 
 Reports are written to `workdir/reports/`. Optional settings (model, context size, target branch, file filters) go in `config.toml`; see `config.example.toml`.
 
