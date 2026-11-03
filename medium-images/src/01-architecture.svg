@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4B5563"/></marker><style>text{font-family:"PingFang TC","Hiragino Sans",sans-serif;fill:#1F2937}.t{font-size:20px;font-weight:600}.s{font-size:15px;fill:#4B5563}.m{font-family:Menlo,monospace;font-size:13.5px;fill:#374151}.n{font-size:13.5px;fill:#6B7280}.l{stroke:#4B5563;stroke-width:1.8;fill:none}</style></defs>
+<rect width="800" height="520" fill="#fff"/>
+<rect x="160" y="30" width="480" height="96" rx="14" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.8"/>
+<text class="t" x="400" y="70" text-anchor="middle">Python agent</text>
+<text class="s" x="400" y="98" text-anchor="middle">決定要 review 什麼、提供工具、處理模型的回覆</text>
+<path class="l" d="M400,126 V205" marker-end="url(#a)"/>
+<text class="m" x="418" y="158">POST localhost:11434/api/chat</text>
+<text class="m" x="418" y="180">{"model": "qwen2.5-coder:7b", ...}</text>
+<rect x="160" y="212" width="480" height="96" rx="14" fill="#F0FDFA" stroke="#14B8A6" stroke-width="1.8"/>
+<text class="t" x="400" y="252" text-anchor="middle">Ollama 伺服器</text>
+<text class="s" x="400" y="280" text-anchor="middle">常駐背景，聽 localhost:11434，負責執行模型</text>
+<path class="l" d="M400,308 V387" marker-end="url(#a)"/>
+<text class="n" x="418" y="352">依照 "model" 找到模型檔 → 載入 GPU → 執行</text>
+<rect x="160" y="394" width="480" height="96" rx="14" fill="#F9FAFB" stroke="#9CA3AF" stroke-width="1.8"/>
+<text class="t" x="400" y="434" text-anchor="middle">模型</text>
+<text class="s" x="400" y="462" text-anchor="middle">硬碟上的權重檔：只會讀一段文字，再接著寫下去</text>
+</svg>

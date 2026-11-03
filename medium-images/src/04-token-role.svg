@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4B5563"/></marker><style>text{font-family:"PingFang TC","Hiragino Sans",sans-serif;fill:#1F2937}.t{font-size:20px;font-weight:600}.s{font-size:15px;fill:#4B5563}.m{font-family:Menlo,monospace;font-size:13.5px;fill:#374151}.n{font-size:13.5px;fill:#6B7280}.l{stroke:#4B5563;stroke-width:1.8;fill:none}</style></defs>
+<rect width="800" height="400" fill="#fff"/>
+<circle cx="300" cy="175" r="155" fill="#6366F1" fill-opacity="0.13" stroke="#6366F1" stroke-width="1.8"/>
+<circle cx="500" cy="175" r="155" fill="#14B8A6" fill-opacity="0.13" stroke="#14B8A6" stroke-width="1.8"/>
+<text class="t" x="240" y="166" text-anchor="middle" style="font-size:18px">token 的 scope</text>
+<text class="s" x="240" y="192" text-anchor="middle">例：api</text>
+<text class="t" x="562" y="166" text-anchor="middle" style="font-size:17px">帳號在專案的角色</text>
+<text class="s" x="562" y="192" text-anchor="middle">例：Guest、Reporter</text>
+<text class="t" x="400" y="168" text-anchor="middle" style="font-size:16px">agent</text>
+<text class="t" x="400" y="190" text-anchor="middle" style="font-size:16px">實際能做</text>
+<text class="t" x="400" y="212" text-anchor="middle" style="font-size:16px">的事</text>
+<text class="s" x="400" y="374" text-anchor="middle">例：token 有 api scope，但 bot 只是 Guest → 不能開 MR，可以留言</text>
+</svg>

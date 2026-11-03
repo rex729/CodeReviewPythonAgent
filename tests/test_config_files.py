@@ -21,12 +21,12 @@ class ParseRepoUrlTest(unittest.TestCase):
         self.assertEqual(target.clone_url, "http://gitlab.local:8080/team/app.git")
 
     def test_ssh_addresses_clone_over_ssh_and_use_https_for_the_api(self):
-        scp = parse_repo_url("git@gitlab.com:machinelearning7311303/codereviewpthonagent.git")
+        scp = parse_repo_url("git@gitlab.com:machinelearning7311303/codereviewpythonagent.git")
         ssh = parse_repo_url("ssh://git@gitlab.com/group/app.git")
 
         self.assertEqual(scp.api_base_url, "https://gitlab.com")
-        self.assertEqual(scp.project_path, "machinelearning7311303/codereviewpthonagent")
-        self.assertEqual(scp.clone_url, "git@gitlab.com:machinelearning7311303/codereviewpthonagent.git")
+        self.assertEqual(scp.project_path, "machinelearning7311303/codereviewpythonagent")
+        self.assertEqual(scp.clone_url, "git@gitlab.com:machinelearning7311303/codereviewpythonagent.git")
         self.assertEqual(ssh.project_path, "group/app")
         self.assertEqual(ssh.clone_url, "ssh://git@gitlab.com/group/app.git")
 
