@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+log = logging.getLogger("review_agent")
 
 
 class OllamaError(RuntimeError):
@@ -14,6 +17,11 @@ class OllamaError(RuntimeError):
 # A review answer is a short bullet list. Small models sometimes fall into repeating themselves and
 # would otherwise write until the context window is full, which took over nine minutes in practice.
 MAX_ANSWER_TOKENS = 1536
+# Penalize tokens repeated within the last REPEAT_WINDOW tokens. Ollama's defaults (1.1 over 64
+# tokens) are too short-sighted to stop a whole sentence coming back three times. Kept mild because
+# reviews quote code, which legitimately repeats identifiers.
+REPEAT_PENALTY = 1.15
+REPEAT_WINDOW = 256
 
 
 class OllamaClient:
@@ -29,12 +37,25 @@ class OllamaClient:
             "model": self.model,
             "messages": messages,
             "stream": False,
-            # Low temperature: a review should be repeatable, not creative.
-            "options": {"num_ctx": self.num_ctx, "temperature": 0.2, "num_predict": MAX_ANSWER_TOKENS},
+            "options": {
+                "num_ctx": self.num_ctx,
+                "temperature": 0.2,  # A review should be repeatable, not creative.
+                "num_predict": MAX_ANSWER_TOKENS,
+                "repeat_penalty": REPEAT_PENALTY,
+                "repeat_last_n": REPEAT_WINDOW,
+            },
         }
         if tools:
             payload["tools"] = tools
-        return self._post("/api/chat", payload)["message"]
+        response = self._post("/api/chat", payload)
+        message = response["message"]
+        if response.get("done_reason") == "length":
+            # Cut off at MAX_ANSWER_TOKENS: the last line stops mid-sentence, so drop it rather
+            # than post half a finding.
+            content = message.get("content", "")
+            message["content"] = content.rsplit("\n", 1)[0] if "\n" in content else ""
+            log.warning("模型的回答超過 %d 個 token 被截斷，已丟掉最後一行不完整的內容", MAX_ANSWER_TOKENS)
+        return message
 
     def has_model(self) -> bool:
         names = {m["name"] for m in self._get("/api/tags").get("models", [])}
