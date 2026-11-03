@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="470" viewBox="0 0 800 470"><defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4B5563"/></marker><style>text{font-family:"PingFang TC","Hiragino Sans",sans-serif;fill:#1F2937}.t{font-size:20px;font-weight:600}.s{font-size:15px;fill:#4B5563}.m{font-family:Menlo,monospace;font-size:13.5px;fill:#374151}.n{font-size:13.5px;fill:#6B7280}.l{stroke:#4B5563;stroke-width:1.8;fill:none}</style></defs>
+<rect width="800" height="470" fill="#fff"/>
+<rect x="60" y="24" width="180" height="50" rx="12" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.8"/>
+<text class="t" x="150" y="56" text-anchor="middle">Python agent</text>
+<rect x="560" y="24" width="180" height="50" rx="12" fill="#F9FAFB" stroke="#9CA3AF" stroke-width="1.8"/>
+<text class="t" x="650" y="56" text-anchor="middle">模型</text>
+<path d="M150,74 V450 M650,74 V450" stroke="#D1D5DB" stroke-width="2" stroke-dasharray="5 5"/>
+<rect x="36" y="160" width="728" height="200" rx="10" fill="none" stroke="#A5B4FC" stroke-width="1.5" stroke-dasharray="6 5"/>
+<rect x="36" y="160" width="208" height="24" rx="6" fill="#EEF2FF"/>
+<text class="n" x="46" y="177" style="fill:#4338CA">迴圈：直到模型不再要求工具</text>
+<text class="s" x="400" y="113" text-anchor="middle">「這是 diff。可用工具：read_file、list_files、search_code」</text>
+<path class="l" d="M150,128 H646" marker-end="url(#a)"/>
+<text class="s" x="400" y="210" text-anchor="middle">「請執行 read_file，path = checkout.py」</text>
+<path class="l" d="M650,225 H154" marker-end="url(#a)"/>
+<text class="n" x="400" y="245" text-anchor="middle">只是一段文字，模型本身不會執行任何東西</text>
+<rect x="74" y="262" width="330" height="36" rx="8" fill="#EEF2FF" stroke="#6366F1" stroke-width="1.2"/>
+<text class="m" x="89" y="285">agent 自己執行 read_file("checkout.py")</text>
+<text class="s" x="400" y="327" text-anchor="middle">「這是 checkout.py 的內容：…」</text>
+<path class="l" d="M150,342 H646" marker-end="url(#a)"/>
+<text class="s" x="400" y="398" text-anchor="middle">「- [高] pricing.py:12 — …」</text>
+<path class="l" d="M650,413 H154" marker-end="url(#a)"/>
+<text class="n" x="400" y="436" text-anchor="middle">沒有再要求工具 → 這就是 review 結果</text>
+</svg>
