@@ -1,4 +1,6 @@
 config.toml
+# Holds the bot's GitLab token: never commit it.
+bot_account.config
 workdir/
 __pycache__/
 *.pyc

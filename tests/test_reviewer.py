@@ -93,6 +93,53 @@ class ReviewChangeTest(unittest.TestCase):
         self.assertLess(len(prompt), 3_000)
 
 
+class OnlyPointsInFileTest(unittest.TestCase):
+    def test_points_citing_other_files_are_dropped(self):
+        # Reviewing stats.h, the model also reported the loop bug that lives in stats.cpp.
+        review = (
+            "- [高] stats.h:5 — 迴圈邊界錯誤，應該是 i < values.size()\n"
+            "- [中] stats.cpp:8 — 陣列越界\n"
+            "- [低] 沒有標位置的問題"
+        )
+
+        kept = Reviewer(ScriptedLLM([answer(review)])).review_change("stats.h", "+x", "", FakeTools())
+
+        self.assertEqual(kept, "- [高] stats.h:5 — 迴圈邊界錯誤，應該是 i < values.size()\n- [低] 沒有標位置的問題")
+
+    def test_short_path_matches_a_file_in_a_folder(self):
+        review = "- [高] stats.cpp:8 — 陣列越界"
+
+        kept = Reviewer(ScriptedLLM([answer(review)])).review_change("src/stats.cpp", "+x", "", FakeTools())
+
+        self.assertEqual(kept, review)
+
+    def test_points_outside_the_changed_lines_are_dropped(self):
+        # The real case: stats.h is 7 lines, yet the model cited stats.h:11 and stats.h:25.
+        diff = "--- /dev/null\n+++ b/stats.h\n@@ -0,0 +1,7 @@\n+#pragma once\n"
+        review = (
+            "- [高] stats.h:6 — copy_values 回傳的記憶體沒有說明誰負責釋放\n"
+            "- [高] stats.h:11 — 整數除法丟失小數\n"
+            "- [高] stats.h:25 — 釋放後又使用 buffer"
+        )
+
+        kept = Reviewer(ScriptedLLM([answer(review)])).review_change("stats.h", diff, "", FakeTools())
+
+        self.assertEqual(kept, "- [高] stats.h:6 — copy_values 回傳的記憶體沒有說明誰負責釋放")
+
+    def test_a_few_lines_of_slack_around_each_hunk(self):
+        diff = "@@ -10,2 +10,3 @@\n+x\n@@ -40 +41 @@\n+y\n"
+        review = "- [低] a.cpp:7 — a\n- [低] a.cpp:6 — b\n- [低] a.cpp:44 — c\n- [低] a.cpp:45 — d"
+
+        kept = Reviewer(ScriptedLLM([answer(review)])).review_change("a.cpp", diff, "", FakeTools())
+
+        self.assertEqual(kept, "- [低] a.cpp:7 — a\n- [低] a.cpp:44 — c")
+
+    def test_nothing_left_means_no_issues(self):
+        kept = Reviewer(ScriptedLLM([answer("- [中] other.cpp:1 — x")])).review_change("a.cpp", "+x", "", FakeTools())
+
+        self.assertEqual(kept, NO_ISSUES)
+
+
 class SummarizeTest(unittest.TestCase):
     def test_skips_the_model_when_nothing_was_found(self):
         llm = ScriptedLLM([])

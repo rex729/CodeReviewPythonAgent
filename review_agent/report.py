@@ -10,8 +10,9 @@ from .reviewer import has_findings
 
 
 class ReportWriter:
-    def __init__(self, directory: Path, now=datetime.now):
+    def __init__(self, directory: Path, project: str, now=datetime.now):
         self._directory = directory
+        self._project = project
         self._now = now
 
     def write(self, mr: MergeRequest, summary: str, findings: dict[str, str], model: str, brief: str) -> Path:
@@ -22,6 +23,7 @@ class ReportWriter:
         lines = [
             f"# MR !{mr.iid}：{mr.title}",
             "",
+            f"- 專案：{self._project}",
             f"- 連結：{mr.web_url}",
             f"- 合併到：`{mr.target_branch}`",
             f"- Commit：`{mr.sha[:12]}`",

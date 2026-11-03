@@ -1,0 +1,5 @@
+# 要監看的 GitLab repo，一行一個網址。HTTPS 和 SSH 格式都可以，例如：
+#   https://gitlab.com/group/project
+#   git@gitlab.com:group/project.git
+# 空行和 # 開頭的行會略過。每一輪都會重新讀這個檔案，新增 repo 不用重啟 agent。
+git@gitlab.com:machinelearning7311303/cplustestdemoforagentcall.git

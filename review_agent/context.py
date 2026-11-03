@@ -30,6 +30,13 @@ BRIEF_PROMPT = """你是資深工程師，用繁體中文回答。根據專案�
 # A definition of `name` in the common languages: `def name`, `fun name`, `class name`, `func name`...
 DEFINITION_KEYWORDS = "def|fun|func|function|class|interface|struct|enum|protocol|object|trait|typealias"
 DEFINITION = re.compile(rf"\b(?:{DEFINITION_KEYWORDS})\s+([A-Za-z_]\w*)")
+# C, C++, Java and C# functions have no keyword, just `type name(`: `int* copy_values(const ...) {`.
+# A trailing `;` makes it a declaration or a call statement; `return f(` and friends aren't definitions.
+C_STYLE_DEFINITION = re.compile(
+    r"^\s*(?!(?:return|else|case|throw|new|delete|co_return|co_await|goto)\b)"
+    r"[A-Za-z_][\w:<>,\s]*[\s*&]+([A-Za-z_]\w*)\s*\([^;]*$"
+)
+C_STYLE_NOT_NAMES = {"if", "for", "while", "switch", "catch", "return", "sizeof", "defined"}
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 NOT_PROJECT_SYMBOLS = {
     "if", "for", "while", "switch", "when", "catch", "return", "super", "self", "this", "init", "new",
@@ -116,7 +123,10 @@ class ProjectContext:
             if line.startswith("+"):
                 added_lines.append(line[1:])
 
-        changed_symbols = _unique(DEFINITION.findall("\n".join(changed_lines)))
+        changed_symbols = _unique([
+            *DEFINITION.findall("\n".join(changed_lines)),
+            *(name for line in changed_lines if (name := _c_style_definition(line))),
+        ])
         called_symbols = _unique(
             name for name in CALL.findall("\n".join(added_lines))
             if len(name) >= 3 and name not in NOT_PROJECT_SYMBOLS and name not in changed_symbols
@@ -140,8 +150,20 @@ class ProjectContext:
         return result.strip()
 
     def _find_definition(self, head: str, name: str, exclude_path: str) -> str | None:
-        pattern = f"({DEFINITION_KEYWORDS})[[:space:]]+{name}"
-        for hit in self._repo.grep(head, pattern, limit=5, regex=True, word=True):
+        keyword_hits = self._repo.grep(head, f"({DEFINITION_KEYWORDS})[[:space:]]+{name}", limit=5, regex=True, word=True)
+        # `type name(` lines that really declare or define it (not `return name(`), bodies before
+        # header declarations.
+        c_style_hits = []
+        for hit in self._repo.grep(
+            head, f"^[[:space:]]*[A-Za-z_][A-Za-z0-9_:<>,[:space:]]*[[:space:]*&]+{name}[[:space:]]*\\(",
+            limit=20, regex=True,
+        ):
+            content = hit.split(":", 2)[2].rstrip()
+            if _c_style_definition(content.removesuffix(";")) == name:
+                c_style_hits.append(hit)
+        c_style_hits.sort(key=lambda hit: hit.rstrip().endswith(";"))
+
+        for hit in keyword_hits + c_style_hits:
             hit_path, line, _ = hit.split(":", 2)
             if hit_path == exclude_path:
                 continue  # Already visible in the full file.
@@ -157,3 +179,11 @@ class ProjectContext:
 
 def _unique(names) -> list[str]:
     return list(dict.fromkeys(names))
+
+
+def _c_style_definition(line: str) -> str | None:
+    """The function name if the line opens a C-style definition (`int* copy_values(...) {`)."""
+    match = C_STYLE_DEFINITION.match(line)
+    if match and match.group(1) not in C_STYLE_NOT_NAMES:
+        return match.group(1)
+    return None

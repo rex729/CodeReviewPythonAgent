@@ -3,16 +3,16 @@ import unittest
 from pathlib import Path
 
 from review_agent.agent import ReviewAgent
-from review_agent.config import DEFAULT_EXCLUDE_DIRS, DEFAULT_INCLUDE_EXTENSIONS, Config
-from review_agent.gitlab import MergeRequest
+from review_agent.config import DEFAULT_EXCLUDE_DIRS, DEFAULT_INCLUDE_EXTENSIONS, Settings
+from review_agent.gitlab import GitLabError, MergeRequest
 from review_agent.state import StateStore
 
 
-def make_config(workdir=Path("."), project_url="https://gitlab.com/group/project", target_branch=None):
-    return Config(
-        project_url=project_url, target_branch=target_branch, poll_seconds=1, gitlab_token=None,
-        ollama_host="http://localhost:11434", model="qwen2.5-coder:7b", num_ctx=16384,
-        include_extensions=DEFAULT_INCLUDE_EXTENSIONS, exclude_dirs=DEFAULT_EXCLUDE_DIRS, workdir=workdir,
+def make_settings(workdir=Path("."), target_branch=None):
+    return Settings(
+        target_branch=target_branch, post_comments=True, gitlab_token=None, ollama_host="http://localhost:11434",
+        model="qwen2.5-coder:7b", num_ctx=16384, include_extensions=DEFAULT_INCLUDE_EXTENSIONS,
+        exclude_dirs=DEFAULT_EXCLUDE_DIRS, workdir=workdir,
     )
 
 
@@ -80,6 +80,22 @@ class FakeGitLab:
         return self.mrs
 
 
+class FakeThread:
+    def __init__(self, fail=False, reviewed=None):
+        self.published = []
+        self._fail = fail
+        self.reviewed = reviewed
+
+    def last_reviewed_commit(self, iid):
+        return self.reviewed
+
+    def publish(self, mr, head, points):
+        if self._fail:
+            raise GitLabError("GitLab 拒絕存取（HTTP 403）")
+        self.published.append((mr.iid, head, points))
+        return "開了新的 thread"
+
+
 class FakeReports:
     def __init__(self):
         self.iids = []
@@ -92,21 +108,58 @@ class FakeReports:
 class ReviewAgentTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.config = make_config(workdir=Path(self._tmp.name))
+        self.settings = make_settings(workdir=Path(self._tmp.name))
         self.repo = FakeRepo()
         self.reviewer = FakeReviewer()
         self.gitlab = FakeGitLab()
         self.reports = FakeReports()
         self.context = FakeContext()
-        self.store = StateStore(self.config.state_file)
+        self.store = StateStore(Path(self._tmp.name) / "state.json")
 
     def tearDown(self):
         self._tmp.cleanup()
 
-    def make_agent(self, config=None):
+    def make_agent(self, settings=None, thread=None):
         return ReviewAgent(
-            config or self.config, self.gitlab, self.repo, self.reviewer, self.context, self.store, self.reports, model="m",
+            "group/app", settings or self.settings, self.gitlab, self.repo, self.reviewer, self.context,
+            self.store, self.reports, thread,
         )
+
+    def test_findings_are_published_to_the_mr_thread_one_point_per_bullet(self):
+        self.repo.changes = [("M", "src/a.py"), ("M", "src/b.py")]
+        self.gitlab.mrs = [mr(7, "s1")]
+        thread = FakeThread()
+
+        self.make_agent(thread=thread).tick()
+
+        self.assertEqual(thread.published, [(7, "mr7-head", ["[中] 問題", "[中] 問題"])])
+
+    def test_skips_an_mr_whose_thread_marks_its_current_commit_reviewed(self):
+        # No local state (e.g. a fresh machine), but the thread's last line says s1abcdef was reviewed.
+        self.gitlab.mrs = [mr(7, "s1abcdef0000")]
+        thread = FakeThread(reviewed="s1abcdef")
+
+        self.make_agent(thread=thread).tick()
+
+        self.assertEqual(self.reviewer.diffs, [])
+        self.assertEqual(thread.published, [])
+        self.assertEqual(self.store.load(), {"7": "s1abcdef0000"})
+
+    def test_reviews_when_the_thread_marks_an_older_commit(self):
+        self.gitlab.mrs = [mr(7, "s2abcdef0000")]
+        thread = FakeThread(reviewed="s1abcdef")
+
+        self.make_agent(thread=thread).tick()
+
+        self.assertEqual(len(thread.published), 1)
+
+    def test_failed_post_leaves_the_mr_for_the_next_round(self):
+        self.gitlab.mrs = [mr(7, "s1")]
+
+        with self.assertRaises(GitLabError):
+            self.make_agent(thread=FakeThread(fail=True)).tick()
+
+        self.assertEqual(self.store.load(), {})
 
     def test_reviews_only_changed_source_files_against_the_merge_base(self):
         self.gitlab.mrs = [mr(7, "s1", target="develop")]
@@ -165,20 +218,18 @@ class ReviewAgentTest(unittest.TestCase):
         self.assertEqual(self.store.load(), {"7": "s1"})
 
     def test_passes_target_branch_filter_to_gitlab(self):
-        self.make_agent(make_config(Path(self._tmp.name), target_branch="main")).tick()
+        self.make_agent(make_settings(Path(self._tmp.name), target_branch="main")).tick()
 
         self.assertEqual(self.gitlab.requested_targets, ["main"])
 
 
-class ConfigTest(unittest.TestCase):
-    def test_project_paths_come_from_the_url(self):
-        config = make_config(project_url="https://gitlab.com/k8stest2/sub/app.git")
+class SettingsTest(unittest.TestCase):
+    def test_reviewable_paths(self):
+        settings = make_settings()
 
-        self.assertEqual(config.project_path, "k8stest2/sub/app")
-        self.assertEqual(config.clone_url, "https://gitlab.com/k8stest2/sub/app.git")
-        self.assertTrue(config.is_reviewable("src/Main.KT"))
-        self.assertFalse(config.is_reviewable("build/generated/Main.kt"))
-        self.assertFalse(config.is_reviewable("docs/notes.md"))
+        self.assertTrue(settings.is_reviewable("src/Main.KT"))
+        self.assertFalse(settings.is_reviewable("build/generated/Main.kt"))
+        self.assertFalse(settings.is_reviewable("docs/notes.md"))
 
 
 if __name__ == "__main__":

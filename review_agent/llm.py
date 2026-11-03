@@ -11,8 +11,13 @@ class OllamaError(RuntimeError):
     pass
 
 
+# A review answer is a short bullet list. Small models sometimes fall into repeating themselves and
+# would otherwise write until the context window is full, which took over nine minutes in practice.
+MAX_ANSWER_TOKENS = 1536
+
+
 class OllamaClient:
-    def __init__(self, host: str, model: str, num_ctx: int, timeout: float = 900):
+    def __init__(self, host: str, model: str, num_ctx: int, timeout: float = 300):
         self._host = host
         self.model = model
         self.num_ctx = num_ctx
@@ -25,7 +30,7 @@ class OllamaClient:
             "messages": messages,
             "stream": False,
             # Low temperature: a review should be repeatable, not creative.
-            "options": {"num_ctx": self.num_ctx, "temperature": 0.2},
+            "options": {"num_ctx": self.num_ctx, "temperature": 0.2, "num_predict": MAX_ANSWER_TOKENS},
         }
         if tools:
             payload["tools"] = tools
@@ -46,5 +51,7 @@ class OllamaClient:
         try:
             with urlopen(request, timeout=self._timeout) as response:
                 return json.load(response)
+        except TimeoutError as e:
+            raise OllamaError(f"Ollama 超過 {self._timeout:.0f} 秒沒有回應") from e
         except URLError as e:
             raise OllamaError(f"連不到 Ollama（{self._host}）：{e.reason}。Ollama 有在執行嗎？") from e

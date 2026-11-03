@@ -95,6 +95,25 @@ class ProjectContextTest(RepoTestCase):
         self.assertIn("`apply_discount` 的定義（pricing.py:1）", context)
         self.assertIn("return price * (1 - rate)", context)
 
+    def test_cpp_function_definitions_and_their_callers_are_found(self):
+        git(self.work, "checkout", "-b", "cpp")
+        self.commit({
+            "stats.h": "#pragma once\nint* copy_values(const std::vector<int>& values);\n",
+            "stats.cpp": '#include "stats.h"\n\nint* copy_values(const std::vector<int>& values) {\n'
+                         "    int* buffer = new int[values.size()];\n    return buffer;\n}\n",
+            "main.cpp": '#include "stats.h"\n\nint main() {\n    int* copy = copy_values(scores);\n    return 0;\n}\n',
+        }, "cpp", ref="refs/merge-requests/5/head")
+        head = self.repo.fetch_merge_request(5)
+
+        main_context = self.context.for_file(mr(), head, "main.cpp", self.repo.diff(self.main, head, "main.cpp"), [], "")
+        stats_context = self.context.for_file(mr(), head, "stats.cpp", self.repo.diff(self.main, head, "stats.cpp"), [], "")
+
+        # The body in stats.cpp, not the declaration in stats.h.
+        self.assertIn("`copy_values` 的定義（stats.cpp:3）", main_context)
+        self.assertIn("int* buffer = new int[values.size()];", main_context)
+        self.assertIn("其他檔案中使用 `copy_values` 的地方", stats_context)
+        self.assertIn("main.cpp:4:", stats_context)
+
     def test_file_too_big_for_the_budget_is_left_to_the_tools(self):
         # checkout.py with line numbers is ~150 characters; the MR header alone uses most of this budget.
         small = ProjectContext(self.repo, self.llm, Path(self._cache.name), max_chars=120, is_reviewable=lambda p: True)
