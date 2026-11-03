@@ -1,0 +1,18 @@
+# 複製成 config.toml 後修改。私有專案的 token 放在環境變數 GITLAB_TOKEN，不要寫在這裡。
+
+# 存放 clone 下來的專案、狀態檔和報告的資料夾（相對於這個設定檔）
+workdir = "workdir"
+
+[gitlab]
+project_url = "https://gitlab.com/group/project"
+poll_seconds = 300              # 每幾秒檢查一次有沒有新的 MR
+# target_branch = "main"        # 只 review 合併到這個 branch 的 MR，不寫則 review 所有開著的 MR
+
+[ollama]
+host = "http://localhost:11434"
+model = "qwen2.5-coder:7b"
+num_ctx = 16384                 # context 大小（token）。qwen2.5-coder 最大 32768，越大越吃 VRAM
+
+[review]
+# include_extensions = [".py", ".kt"]      # 只 review 這些副檔名，不寫則用內建清單
+# exclude_dirs = ["build", "node_modules"] # 略過這些資料夾，不寫則用內建清單

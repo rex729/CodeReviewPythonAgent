@@ -1,0 +1,4 @@
+config.toml
+workdir/
+__pycache__/
+*.pyc
