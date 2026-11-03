@@ -78,6 +78,10 @@ class GitLabClient:
         """Starts a resolvable thread (the "Start thread" button, not a plain comment). Returns its id."""
         return self._request("POST", f"/merge_requests/{iid}/discussions", payload={"body": body})["id"]
 
+    def resolve_thread(self, iid: int, discussion_id: str) -> None:
+        """Marks a thread resolved, the same as its "Resolve thread" button."""
+        self._request("PUT", f"/merge_requests/{iid}/discussions/{discussion_id}", params={"resolved": "true"})
+
     def delete_note(self, iid: int, note_id: int) -> None:
         """Deletes a note; a thread disappears once all its notes are gone. Only the token's own
         notes can be deleted (unless the account maintains the project)."""
